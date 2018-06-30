@@ -21,6 +21,6 @@ npm install
 node stresstest.js
 ```
 * Write down your mnemonic and WIF
-* Fund the address received
+* Send BCH to the receiving address displayed
 
 ### Made with [#BITBOX](https://github.com/bigearth/bitbox-cli)
