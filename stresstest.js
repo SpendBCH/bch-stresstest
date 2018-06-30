@@ -19,308 +19,308 @@ let BITBOX = new BITBOXCli({
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 let sendTxAsync = async (hex) => {
-		return new Promise( (resolve, reject) => {
-				BITBOX.RawTransactions.sendRawTransaction(hex).then((result) => { 
-						console.log('txid:', result)
-						if (result.length != 64) { // Very rough txid size check for failure
-								reject("sendTxAsync failure: " + result)
-						}
-						else {
-								resolve(result)
-						}
-				}, (err) => { 
-						reject(err)
-				})
+	return new Promise((resolve, reject) => {
+		BITBOX.RawTransactions.sendRawTransaction(hex).then((result) => {
+			console.log('txid:', result)
+			if (result.length != 64) { // Very rough txid size check for failure
+				reject("sendTxAsync failure: " + result)
+			}
+			else {
+				resolve(result)
+			}
+		}, (err) => {
+			reject(err)
 		})
+	})
 }
 
 let sendTxChainAsync = async (hexList) => {
-  return new Promise( async (resolve, reject) => {
-      let totalSent = 0
-      for (let i = 0; i < hexList.length; i++) {
-          try {
-              await sendTxAsync(hexList[i])
-              totalSent += 1
-              await sleep(200)
-          } catch (ex) {
-              console.log("sendTxChainAsync, chain " + i + " ex:", ex)
-              reject(ex)
-              break
-          }
-      }
+	return new Promise(async (resolve, reject) => {
+		let totalSent = 0
+		for (let i = 0; i < hexList.length; i++) {
+			try {
+				await sendTxAsync(hexList[i])
+				totalSent += 1
+				await sleep(200)
+			} catch (ex) {
+				console.log("sendTxChainAsync, chain " + i + " ex:", ex)
+				reject(ex)
+				break
+			}
+		}
 
-      resolve(totalSent)
-  })
+		resolve(totalSent)
+	})
 }
 
 
 let getUtxos = async (address) => {
-	return new Promise( (resolve, reject) => {
-			BITBOX.Address.utxo(address).then((result) => { 
-					console.log("utxo: ", result)
-					resolve(result)
-			}, (err) => { 
-					console.log(err)
-					reject(err)
-			})
+	return new Promise((resolve, reject) => {
+		BITBOX.Address.utxo(address).then((result) => {
+			console.log("utxo: ", result)
+			resolve(result)
+		}, (err) => {
+			console.log(err)
+			reject(err)
+		})
 	})
 }
 
 let pollForUtxo = async (address) => {
-  // poll for utxo
-  try {
-    while (true) {
-      // rate limit
-      await sleep(20 * 1000)
+	// poll for utxo
+	try {
+		while (true) {
+			// rate limit
+			await sleep(20 * 1000)
 
-      let utxos = await getUtxos(address)
-      
-      // return highest value utxo when first utxo is found
-      if (utxos && utxos.length > 0)
-        return utxos.sort((a, b) => { return a.satoshis - b.satoshis })[utxos.length-1]
-      else
-        console.log("Waiting for funding...")
-    }
-  } catch (ex) {
-    console.log("Poll for utxo ex: ", ex)
-  }
+			let utxos = await getUtxos(address)
+
+			// return highest value utxo when first utxo is found
+			if (utxos && utxos.length > 0)
+				return utxos.sort((a, b) => { return a.satoshis - b.satoshis })[utxos.length - 1]
+			else
+				console.log("Waiting for funding...")
+		}
+	} catch (ex) {
+		console.log("Poll for utxo ex: ", ex)
+	}
 }
 
 let getTxDetails = async (txid) => {
-	return new Promise( (resolve, reject) => {
-			BITBOX.Transaction.details(txid).then((result) => { 
-					console.log("tx details", result)
-					resolve(result)
-			}, (err) => { 
-					reject(err)
-			})
+	return new Promise((resolve, reject) => {
+		BITBOX.Transaction.details(txid).then((result) => {
+			console.log("tx details", result)
+			resolve(result)
+		}, (err) => {
+			reject(err)
+		})
 	})
 }
 
 let pollForConfirmation = async (txid) => {
 	// poll for utxo
 	while (true) {
-    try {
-      // rate limit
-      await sleep(60 * 1000)
+		try {
+			// rate limit
+			await sleep(60 * 1000)
 
-      let txDetails = await getTxDetails(txid)
-      
-      // return highest value utxo when first utxo is found
-      if (txDetails && txDetails.confirmations > 0)
-        return txDetails
-      else
-        console.log("Waiting for split tx confirmation...")
-    } catch (ex) {
-      console.log("Poll for confirmation ex: ", ex)
-    }
+			let txDetails = await getTxDetails(txid)
+
+			// return highest value utxo when first utxo is found
+			if (txDetails && txDetails.confirmations > 0)
+				return txDetails
+			else
+				console.log("Waiting for split tx confirmation...")
+		} catch (ex) {
+			console.log("Poll for confirmation ex: ", ex)
+		}
 	}
 }
 
 let main = async () => {
-    let mnemonic = BITBOX.Mnemonic.generate(256)
-		let rootSeed = BITBOX.Mnemonic.toSeed(mnemonic)
-		let masterHDNode = BITBOX.HDNode.fromSeed(rootSeed, 'bitcoincash')
-		let hdNode = BITBOX.HDNode.derivePath(masterHDNode, "m/44'/145'/0'")
+	let mnemonic = BITBOX.Mnemonic.generate(256)
+	let rootSeed = BITBOX.Mnemonic.toSeed(mnemonic)
+	let masterHDNode = BITBOX.HDNode.fromSeed(rootSeed, 'bitcoincash')
+	let hdNode = BITBOX.HDNode.derivePath(masterHDNode, "m/44'/145'/0'")
 
-		// derive the first external change address HDNode which is going to spend utxo
-		let node0 = BITBOX.HDNode.derivePath(hdNode, "1/0")
-		let node0CashAddress = BITBOX.HDNode.toCashAddress(node0)
-		let node0LegacyAddress = BITBOX.HDNode.toLegacyAddress(node0)
-		let node0WIF = BITBOX.ECPair.toWIF(BITBOX.HDNode.toKeyPair(node0))
+	// derive the first external change address HDNode which is going to spend utxo
+	let node0 = BITBOX.HDNode.derivePath(hdNode, "1/0")
+	let node0CashAddress = BITBOX.HDNode.toCashAddress(node0)
+	let node0LegacyAddress = BITBOX.HDNode.toLegacyAddress(node0)
+	let node0WIF = BITBOX.ECPair.toWIF(BITBOX.HDNode.toKeyPair(node0))
 
-    console.log("Write down your mnemonic in case of a problem where a manual recovery is required")
-		console.log("Your mnemonic: " + mnemonic)
-		console.log("Your wif: " + node0WIF)
-		console.log(`Send BCH to ${node0CashAddress} to start`)
+	console.log("Write down your mnemonic in case of a problem where a manual recovery is required")
+	console.log("Your mnemonic: " + mnemonic)
+	console.log("Your wif: " + node0WIF)
+	console.log(`Send BCH to ${node0CashAddress} to start`)
 
-		// Wait for utxo to arrive to build starting wallet
-    let utxo = await pollForUtxo(node0LegacyAddress)
-    
-    // TODO: Get refund address from tx details
-    let refundAddress = utxo.legacyAddress
+	// Wait for utxo to arrive to build starting wallet
+	let utxo = await pollForUtxo(node0LegacyAddress)
 
-		console.log("UTXO found. Change will be sent to:", refundAddress)
+	// TODO: Get refund address from tx details
+	let refundAddress = utxo.legacyAddress
 
-		let wallet = {
-				satoshis: utxo.satoshis,
-				txid: utxo.txid,
-				vout: utxo.vout
+	console.log("UTXO found. Change will be sent to:", refundAddress)
+
+	let wallet = {
+		satoshis: utxo.satoshis,
+		txid: utxo.txid,
+		vout: utxo.vout
+	}
+
+	let dustLimitSats = 546
+	let maxTxChain = 24
+	let feePerTx = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 1 })
+	let satsPerAddress = feePerTx * maxTxChain + dustLimitSats
+	let numAddresses = Math.floor(wallet.satoshis / (satsPerAddress + feePerTx))
+
+	// Calculate splitTx fee and change to return to refundAddress
+	let byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: numAddresses + 1 })
+	let satsChange = wallet.satoshis - byteCount - (numAddresses * satsPerAddress)
+
+	console.log(`Creating ${numAddresses} addresses to send ${numAddresses * maxTxChain} transactions with ${satsChange} sats change to be refunded`)
+
+	let splitAddressResult = splitAddress(wallet, numAddresses, satsPerAddress, hdNode, node0, refundAddress, satsChange, maxTxChain)
+	let splitTxHex = splitAddressResult.hex
+	let walletChains = splitAddressResult.wallets
+
+	// Generate transactions for each address
+	let hexListByAddress = createChainedTransactions(walletChains, maxTxChain, refundAddress)
+
+	// Broadcast split tx
+	let splitTxid = await sendTxAsync(splitTxHex)
+	console.log("Split txid: ", splitTxid)
+
+	// Wait for first confirmation before stress testing to avoid mempool chain limit
+	console.log("Split tx completed. Waiting for first confirmation...")
+	await pollForConfirmation(splitTxid)
+
+	console.log("Split tx confirmed. Starting stress test in 10 seconds...")
+	await sleep(10 * 1000)
+
+	// Use below to send each tx chain in serial
+	let totalSent = 0
+	for (let i = 0; i < hexListByAddress.length; i++) {
+		try {
+			let sent = await sendTxChainAsync(hexListByAddress[i])
+			totalSent += sent
+		} catch (ex) {
+			console.log(`Wallet chain_${i} exception:`, ex)
 		}
-		
-		let dustLimitSats = 546
-		let maxTxChain = 24
-		let feePerTx = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 1 })
-		let satsPerAddress = feePerTx * maxTxChain + dustLimitSats
-		let numAddresses = Math.floor(wallet.satoshis / (satsPerAddress + feePerTx))
+	}
+	console.log("Sent " + totalSent + " transactions successfully")
 
-		// Calculate splitTx fee and change to return to refundAddress
-		let byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: numAddresses+1 })
-    let satsChange = wallet.satoshis - byteCount - (numAddresses * satsPerAddress)
+	// Use below to send each tx chain in parallel
+	// await Promise.all(hexListByAddress.map(async (hexList) => {
+	// 		try {
+	// 				await sendTxChainAsync(hexList)
+	// 		} catch (ex) {
+	// 				console.log(ex)
+	// 		}
+	// }))
 
-		console.log(`Creating ${numAddresses} addresses to send ${numAddresses * maxTxChain} transactions with ${satsChange} sats change to be refunded`)
+	// TODO: Merge final UTXOs
 
-    let splitAddressResult = splitAddress(wallet, numAddresses, satsPerAddress, hdNode, node0, refundAddress, satsChange, maxTxChain)
-    let splitTxHex = splitAddressResult.hex
-		let walletChains = splitAddressResult.wallets
-
-		// Generate transactions for each address
-		let hexListByAddress = createChainedTransactions(walletChains, maxTxChain, refundAddress)		
-
-    // Broadcast split tx
-    let splitTxid = await sendTxAsync(splitTxHex)
-    console.log("Split txid: ", splitTxid)
-
-    // Wait for first confirmation before stress testing to avoid mempool chain limit
-    console.log("Split tx completed. Waiting for first confirmation...")
-    await pollForConfirmation(splitTxid)
-
-    console.log("Split tx confirmed. Starting stress test in 10 seconds...")
-    await sleep(10 * 1000)
-
-    // Use below to send each tx chain in serial
-    let totalSent = 0
-    for (let i = 0; i < hexListByAddress.length; i++) {
-			try {
-        let sent = await sendTxChainAsync(hexListByAddress[i])
-        totalSent += sent
-			} catch (ex) {
-					console.log(`Wallet chain_${i} exception:`, ex)
-			}
-    }
-    console.log("Sent " + totalSent + " transactions successfully")
-
-    // Use below to send each tx chain in parallel
-		// await Promise.all(hexListByAddress.map(async (hexList) => {
-		// 		try {
-		// 				await sendTxChainAsync(hexList)
-		// 		} catch (ex) {
-		// 				console.log(ex)
-		// 		}
-    // }))
-    
-    // TODO: Merge final UTXOs
-
-		console.log("Broadcast complete")
+	console.log("Broadcast complete")
 }
 
 let txidFromHex = (hex) => {
-		let buffer = Buffer.from(hex, "hex")
-		let hash = BITBOX.Crypto.hash256(buffer).toString('hex')
-		return hash.match(/[a-fA-F0-9]{2}/g).reverse().join('')
+	let buffer = Buffer.from(hex, "hex")
+	let hash = BITBOX.Crypto.hash256(buffer).toString('hex')
+	return hash.match(/[a-fA-F0-9]{2}/g).reverse().join('')
 }
 
 let splitAddress = (wallet, numAddresses, satsPerAddress, hdNode, node0, changeAddress, satsChange, maxTxChain) => {
-		let transactionBuilder = new BITBOX.TransactionBuilder('bitcoincash');
-		transactionBuilder.addInput(wallet.txid, wallet.vout);
+	let transactionBuilder = new BITBOX.TransactionBuilder('bitcoincash');
+	transactionBuilder.addInput(wallet.txid, wallet.vout);
 
-		let walletChains = []
-		for (let i = 0; i < numAddresses; i++) {
-        let walletChain = []
+	let walletChains = []
+	for (let i = 0; i < numAddresses; i++) {
+		let walletChain = []
 
-				let firstNode = BITBOX.HDNode.derivePath(hdNode, `1/${i+1}`)
-        let firstNodeLegacyAddress = BITBOX.HDNode.toLegacyAddress(firstNode)
-        
-        walletChain.push({
-            vout: i,
-            address: firstNodeLegacyAddress,
-            satoshis: satsPerAddress,
-            keyPair: BITBOX.HDNode.toKeyPair(firstNode)
-        })
+		let firstNode = BITBOX.HDNode.derivePath(hdNode, `1/${i + 1}`)
+		let firstNodeLegacyAddress = BITBOX.HDNode.toLegacyAddress(firstNode)
 
-				transactionBuilder.addOutput(firstNodeLegacyAddress, satsPerAddress)
-
-        // Derive next maxTxChain-1 addresses and keypairs for this chain
-				for(let j = 0; j < maxTxChain-1; j++) {
-					let nextNode = BITBOX.HDNode.derivePath(hdNode, `0/${i*maxTxChain + j}`)
-					let nextNodeLegacyAddress = BITBOX.HDNode.toLegacyAddress(nextNode)
-					walletChain.push({
-						keyPair: BITBOX.HDNode.toKeyPair(nextNode),
-						address: nextNodeLegacyAddress
-					})
-				}
-
-        walletChains.push(walletChain)
-		}
-
-    // Check change against dust limit
-    if (satsChange > 600) {
-      transactionBuilder.addOutput(changeAddress, satsChange)
-    }
-
-		let keyPair = BITBOX.HDNode.toKeyPair(node0);
-
-		let redeemScript
-		transactionBuilder.sign(0, keyPair, redeemScript, transactionBuilder.hashTypes.SIGHASH_ALL, wallet.satoshis)
-
-		let hex = transactionBuilder.build().toHex()
-
-		// txid of this split/fanout tx
-		let splitTxid = txidFromHex(hex)
-    
-    let walletsWithTxid = walletChains.map((wc) => {
-      wc[0].txid = splitTxid
-			return wc
+		walletChain.push({
+			vout: i,
+			address: firstNodeLegacyAddress,
+			satoshis: satsPerAddress,
+			keyPair: BITBOX.HDNode.toKeyPair(firstNode)
 		})
 
-		return {
-			hex: hex, 
-			wallets: walletsWithTxid,
+		transactionBuilder.addOutput(firstNodeLegacyAddress, satsPerAddress)
+
+		// Derive next maxTxChain-1 addresses and keypairs for this chain
+		for (let j = 0; j < maxTxChain - 1; j++) {
+			let nextNode = BITBOX.HDNode.derivePath(hdNode, `0/${i * maxTxChain + j}`)
+			let nextNodeLegacyAddress = BITBOX.HDNode.toLegacyAddress(nextNode)
+			walletChain.push({
+				keyPair: BITBOX.HDNode.toKeyPair(nextNode),
+				address: nextNodeLegacyAddress
+			})
 		}
+
+		walletChains.push(walletChain)
+	}
+
+	// Check change against dust limit
+	if (satsChange > 600) {
+		transactionBuilder.addOutput(changeAddress, satsChange)
+	}
+
+	let keyPair = BITBOX.HDNode.toKeyPair(node0);
+
+	let redeemScript
+	transactionBuilder.sign(0, keyPair, redeemScript, transactionBuilder.hashTypes.SIGHASH_ALL, wallet.satoshis)
+
+	let hex = transactionBuilder.build().toHex()
+
+	// txid of this split/fanout tx
+	let splitTxid = txidFromHex(hex)
+
+	let walletsWithTxid = walletChains.map((wc) => {
+		wc[0].txid = splitTxid
+		return wc
+	})
+
+	return {
+		hex: hex,
+		wallets: walletsWithTxid,
+	}
 }
 
 let createChainedTransactions = (walletChains, numTxToChain, refundAddress) => {
-		let hexByAddress = []
-		
-		for (let i = 0; i < walletChains.length; i++) {
-				let walletChain = walletChains[i]
+	let hexByAddress = []
 
-        let hexList = []
-        let wallet = walletChain[0]
-				for (let j = 0; j < numTxToChain; j++) {
-            // Update keyPair to sign current tx
-            wallet.keyPair = walletChain[j].keyPair
+	for (let i = 0; i < walletChains.length; i++) {
+		let walletChain = walletChains[i]
 
-						// Send tx to next address until last tx, then send back to refundAddress
-						let targetAddress
-						if (j == numTxToChain - 1)
-							targetAddress = refundAddress
-						else
-							targetAddress = walletChain[j+1].address
-						
-            let txResult = createTx(wallet, targetAddress)
-            
-            // Update wallet for next send
-						wallet.txid = txResult.txid
-						wallet.satoshis = txResult.satoshis
-            wallet.vout = txResult.vout
+		let hexList = []
+		let wallet = walletChain[0]
+		for (let j = 0; j < numTxToChain; j++) {
+			// Update keyPair to sign current tx
+			wallet.keyPair = walletChain[j].keyPair
 
-						hexList.push(txResult.hex)
-				}
-				hexByAddress.push(hexList.slice())
-			}
+			// Send tx to next address until last tx, then send back to refundAddress
+			let targetAddress
+			if (j == numTxToChain - 1)
+				targetAddress = refundAddress
+			else
+				targetAddress = walletChain[j + 1].address
 
-		return hexByAddress
+			let txResult = createTx(wallet, targetAddress)
+
+			// Update wallet for next send
+			wallet.txid = txResult.txid
+			wallet.satoshis = txResult.satoshis
+			wallet.vout = txResult.vout
+
+			hexList.push(txResult.hex)
+		}
+		hexByAddress.push(hexList.slice())
+	}
+
+	return hexByAddress
 }
 
 let createTx = (wallet, targetAddress) => {
-		let transactionBuilder = new BITBOX.TransactionBuilder('bitcoincash')
-		transactionBuilder.addInput(wallet.txid, wallet.vout)
+	let transactionBuilder = new BITBOX.TransactionBuilder('bitcoincash')
+	transactionBuilder.addInput(wallet.txid, wallet.vout)
 
-		// Calculate fee @ 1 sat/byte
-		let byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 1 })
-		let satoshisAfterFee = wallet.satoshis - byteCount
+	// Calculate fee @ 1 sat/byte
+	let byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 1 })
+	let satoshisAfterFee = wallet.satoshis - byteCount
 
-		transactionBuilder.addOutput(targetAddress, satoshisAfterFee)
+	transactionBuilder.addOutput(targetAddress, satoshisAfterFee)
 
-		let redeemScript
-		transactionBuilder.sign(0, wallet.keyPair, redeemScript, transactionBuilder.hashTypes.SIGHASH_ALL, wallet.satoshis)
+	let redeemScript
+	transactionBuilder.sign(0, wallet.keyPair, redeemScript, transactionBuilder.hashTypes.SIGHASH_ALL, wallet.satoshis)
 
-		let hex = transactionBuilder.build().toHex()
+	let hex = transactionBuilder.build().toHex()
 
-		let txid = txidFromHex(hex)
+	let txid = txidFromHex(hex)
 
-		return {txid: txid, satoshis: satoshisAfterFee, vout: 0, hex: hex}
+	return { txid: txid, satoshis: satoshisAfterFee, vout: 0, hex: hex }
 }
 
 // Launch app
