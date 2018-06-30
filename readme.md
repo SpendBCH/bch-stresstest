@@ -10,7 +10,7 @@ Use at your own risk. This is currently not polished, requires a dedicated node,
 git clone https://github.com/SpendBCH/bch-stresstest.git
 cd bch-stresstest
 ```
-* Configure your node and bitbox settings in stresstest.js
+* Configure your node and bitbox settings in stresstest.js (check comments at the top)
 * Update bitbox-cli version in package.json if required
 * Install bitbox-cli
 ```sh
