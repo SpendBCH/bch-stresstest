@@ -1,0 +1,12 @@
+{
+  "name": "bch-stresstest",
+  "version": "1.0.0",
+  "description": "",
+  "main": "stresstest.js",
+  "scripts": {},
+  "author": "SpendBCH",
+  "license": "MIT",
+  "dependencies": {
+    "bitbox-cli": "0.7.21"
+  }
+}
