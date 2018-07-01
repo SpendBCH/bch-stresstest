@@ -24,3 +24,6 @@ node stresstest.js
 * Send BCH to the receiving address displayed
 
 ### Made with [#BITBOX](https://github.com/bigearth/bitbox-cli)
+
+### Known bugs
+1. The mining fee for split tx calculation is off and did fail when testing 10k+ tx. Save your mnemonic to recover these funds.
