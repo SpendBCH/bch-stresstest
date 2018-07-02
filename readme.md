@@ -16,7 +16,7 @@ cd bch-stresstest
 ```sh
 npm install
 ```
-* Start the app. stresstest.js or stresstest_fast.js for 20 tx simultaneous
+* Start the app. (stresstest_fast.js if your node is capable of 20 tx simultaneous)
 ```sh
 node stresstest.js
 ```
