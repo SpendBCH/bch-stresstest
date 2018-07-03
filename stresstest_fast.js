@@ -17,6 +17,8 @@ let BITBOX = new BITBOXCli({
 // let BITBOX = new BITBOXCli()
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+let data = "stresstestbitcoin.cash"
+let buf = BITBOX.Script.nullData.output.encode(Buffer.from(data, 'ascii'))
 
 let sendTxAsync = async (hex) => {
   return new Promise((resolve, reject) => {
@@ -128,12 +130,16 @@ let main = async () => {
   let node0CashAddress = BITBOX.HDNode.toCashAddress(node0)
   let node0LegacyAddress = BITBOX.HDNode.toLegacyAddress(node0)
   let node0WIF = BITBOX.ECPair.toWIF(BITBOX.HDNode.toKeyPair(node0))
+  let msg = "stresstestbitcoin.cash"
+  let signature = BITBOX.BitcoinCash.signMessageWithPrivKey(node0WIF, msg)
 
   console.log("Write down your mnemonic in case of a problem where a manual recovery is required")
   console.log("For safety import mnemonic into Electron Cash and verify you have access to any funds you send")
   console.log("Your mnemonic: " + mnemonic)
   console.log("Your wif: " + node0WIF)
   console.log(`Send BCH to ${node0CashAddress} to start`)
+  console.log("Write down the following message, address and signature to prove you sent these transactions")
+  console.log(`Message: ${msg}, signed from address: ${node0CashAddress}, signature: ${signature}`)
 
   // Wait for utxo to arrive to build starting wallet
   let utxo = await pollForUtxo(node0LegacyAddress)
@@ -151,7 +157,7 @@ let main = async () => {
 
   let dustLimitSats = 546
   let maxTxChain = 24
-  let feePerTx = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 1 })
+  let feePerTx = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 3 })
   let satsPerAddress = feePerTx * maxTxChain + dustLimitSats
   let splitFeePerAddress = BITBOX.BitcoinCash.getByteCount({ P2PKH: 0 }, { P2PKH: 1 })
   let numAddresses = Math.floor((wallet.satoshis) / (satsPerAddress + feePerTx + splitFeePerAddress))
@@ -166,7 +172,7 @@ let main = async () => {
   let satsChange = 0
   while (satsChange < dustLimitSats) {
     // Calculate splitTx fee and change to return to refundAddress
-    byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: numAddresses + 1 })
+    byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: numAddresses + 3 })
     satsChange = wallet.satoshis - byteCount - (numAddresses * satsPerAddress)
 
     if (satsChange < dustLimitSats) {
@@ -244,14 +250,7 @@ let splitAddress = (wallet, numAddresses, satsPerAddress, hdNode, node0, changeA
 
     transactionBuilder.addOutput(firstNodeLegacyAddress, satsPerAddress)
 
-    // Derive next maxTxChain-1 addresses and keypairs for this chain
     for (let j = 0; j < maxTxChain - 1; j++) {
-      // let nextNode = BITBOX.HDNode.derivePath(hdNode, `0/${i * maxTxChain + j}`)
-      // let nextNodeLegacyAddress = BITBOX.HDNode.toLegacyAddress(nextNode)
-      // walletChain.push({
-      //   keyPair: BITBOX.HDNode.toKeyPair(nextNode),
-      //   address: nextNodeLegacyAddress
-      // })
       walletChain.push({
         keyPair: BITBOX.HDNode.toKeyPair(firstNode),
         address: firstNodeLegacyAddress
@@ -260,6 +259,9 @@ let splitAddress = (wallet, numAddresses, satsPerAddress, hdNode, node0, changeA
 
     walletChains.push(walletChain)
   }
+
+  // write stresstestbitcoin.cash to the chain w/ OP_RETURN
+  transactionBuilder.addOutput(buf, 0)
 
   // Check change against dust limit
   if (satsChange >= 546) {
@@ -326,10 +328,13 @@ let createTx = (wallet, targetAddress) => {
   transactionBuilder.addInput(wallet.txid, wallet.vout)
 
   // Calculate fee @ 1 sat/byte
-  let byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 1 })
+  let byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 3 })
   let satoshisAfterFee = wallet.satoshis - byteCount
 
   transactionBuilder.addOutput(targetAddress, satoshisAfterFee)
+
+  // write stresstestbitcoin.cash to the chain w/ OP_RETURN
+  transactionBuilder.addOutput(buf, 0)
 
   let redeemScript
   transactionBuilder.sign(0, wallet.keyPair, redeemScript, transactionBuilder.hashTypes.SIGHASH_ALL, wallet.satoshis)
