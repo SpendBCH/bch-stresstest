@@ -1,22 +1,24 @@
 // Use below bitbox settings for broadcasting directly to a local node over RPC -- use bitbox-cli version 0.7.21 for this
-let BITBOXCli = require('bitbox-cli/lib/bitboxcli').default
+// let BITBOXCli = require('bitbox-cli/lib/bitboxcli').default
 
 // Set connection details for a BCH node with RPC access
-let BITBOX = new BITBOXCli({
-	protocol: 'http',
-	host: '127.0.0.1',
-	port: 8332,
-	username: 'your rpc username',
-	password: 'your rpc password',
-	corsproxy: false,
-})
+// let BITBOX = new BITBOXCli({
+// 	protocol: 'http',
+// 	host: '127.0.0.1',
+// 	port: 8332,
+// 	username: 'your rpc username',
+// 	password: 'your rpc password',
+// 	corsproxy: false,
+// })
 
 // Use below bitbox settings to connect to bitbox rest instance, modify source to rate limit to 1 request/3.5 seconds
 // Use latest bitbox version with these settings
-// let BITBOXCli = require('bitbox-cli/lib/bitbox-cli').default
-// let BITBOX = new BITBOXCli()
+let BITBOXCli = require('bitbox-cli/lib/bitbox-cli').default
+let BITBOX = new BITBOXCli()
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+let data = "stresstestbitcoin.cash";
+let buf = BITBOX.Script.nullData.output.encode(Buffer.from(data, 'ascii'));
 
 let sendTxAsync = async (hex) => {
 	return new Promise((resolve, reject) => {
@@ -128,11 +130,15 @@ let main = async () => {
 	let node0CashAddress = BITBOX.HDNode.toCashAddress(node0)
 	let node0LegacyAddress = BITBOX.HDNode.toLegacyAddress(node0)
 	let node0WIF = BITBOX.ECPair.toWIF(BITBOX.HDNode.toKeyPair(node0))
+	let msg = "stresstestbitcoin.cash";
+	let signature = BITBOX.BitcoinCash.signMessageWithPrivKey(node0WIF, msg);
 
 	console.log("Write down your mnemonic in case of a problem where a manual recovery is required")
 	console.log("Your mnemonic: " + mnemonic)
 	console.log("Your wif: " + node0WIF)
 	console.log(`Send BCH to ${node0CashAddress} to start`)
+	console.log("Write down the following message, address and signature to prove you sent these transactions")
+	console.log(`Message: ${msg}, signed from address: ${node0CashAddress}, signature: ${signature}`)
 
 	// Wait for utxo to arrive to build starting wallet
 	let utxo = await pollForUtxo(node0LegacyAddress)
@@ -150,12 +156,12 @@ let main = async () => {
 
 	let dustLimitSats = 546
 	let maxTxChain = 24
-	let feePerTx = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 1 })
+	let feePerTx = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 3 })
 	let satsPerAddress = feePerTx * maxTxChain + dustLimitSats
 	let numAddresses = Math.floor(wallet.satoshis / (satsPerAddress + feePerTx))
 
 	// Calculate splitTx fee and change to return to refundAddress
-	let byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: numAddresses + 1 })
+	let byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: numAddresses + 3 })
 	let satsChange = wallet.satoshis - byteCount - (numAddresses * satsPerAddress)
 
 	console.log(`Creating ${numAddresses} addresses to send ${numAddresses * maxTxChain} transactions with ${satsChange} sats change to be refunded`)
@@ -243,6 +249,9 @@ let splitAddress = (wallet, numAddresses, satsPerAddress, hdNode, node0, changeA
 		walletChains.push(walletChain)
 	}
 
+	// write stresstestbitcoin.cash to the chain w/ OP_RETURN
+	transactionBuilder.addOutput(buf, 0);
+
 	// Check change against dust limit
 	if (satsChange > 600) {
 		transactionBuilder.addOutput(changeAddress, satsChange)
@@ -308,10 +317,12 @@ let createTx = (wallet, targetAddress) => {
 	transactionBuilder.addInput(wallet.txid, wallet.vout)
 
 	// Calculate fee @ 1 sat/byte
-	let byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 1 })
+	let byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 3 })
 	let satoshisAfterFee = wallet.satoshis - byteCount
 
 	transactionBuilder.addOutput(targetAddress, satoshisAfterFee)
+	// write stresstestbitcoin.cash to the chain w/ OP_RETURN
+	transactionBuilder.addOutput(buf, 0);
 
 	let redeemScript
 	transactionBuilder.sign(0, wallet.keyPair, redeemScript, transactionBuilder.hashTypes.SIGHASH_ALL, wallet.satoshis)
