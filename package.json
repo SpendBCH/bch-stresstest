@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "stresstest.js",
-  "scripts": {},
+  "scripts": {
+    "start": "node stresstest.js"
+  },
   "author": "SpendBCH",
   "license": "MIT",
   "dependencies": {
-    "bitbox-cli": "0.7.21"
+    "bitbox-cli": "1.2.0"
   }
 }
