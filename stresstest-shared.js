@@ -50,7 +50,7 @@ class StresstestShared {
       }, (err) => {
         reject(err)
       })
-    
+    })
   }
 
   async sendTxChainAsync(hexList) {
@@ -139,7 +139,7 @@ class StresstestShared {
           console.log("Waiting for split tx confirmation...")
       } catch (ex) {
         console.log("Poll for confirmation ex: ", ex)
-      
+      }
     }
   }
 
