@@ -9,6 +9,7 @@
   "author": "SpendBCH",
   "license": "MIT",
   "dependencies": {
-    "bitbox-cli": "1.2.0"
+    "bitbox-cli": "1.2.0",
+    "qrcode-terminal": "^0.12.0"
   }
 }

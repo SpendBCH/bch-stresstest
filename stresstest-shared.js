@@ -1,6 +1,8 @@
 let BITBOXCli
 let BITBOX
 
+let qrcode = require('qrcode-terminal')
+
 // Interactive stuff - contributed by sploit BIP47
 const readline = require('readline')
 function askQuestion(query) {
@@ -48,7 +50,7 @@ class StresstestShared {
       }, (err) => {
         reject(err)
       })
-    })
+    
   }
 
   async sendTxChainAsync(hexList) {
@@ -137,7 +139,7 @@ class StresstestShared {
           console.log("Waiting for split tx confirmation...")
       } catch (ex) {
         console.log("Poll for confirmation ex: ", ex)
-      }
+      
     }
   }
 
@@ -157,6 +159,7 @@ class StresstestShared {
     let node0WIF = BITBOX.ECPair.toWIF(BITBOX.HDNode.toKeyPair(node0))
     let msg = "stresstestbitcoin.cash";
     let signature = BITBOX.BitcoinCash.signMessageWithPrivKey(node0WIF, msg);
+    let qrcodeCashAddress = qrcode.generate(node0CashAddress)
 
     console.log("Write down your mnemonic in case of a problem where a manual recovery is required")
     console.log("Your mnemonic: " + mnemonic)
@@ -164,6 +167,8 @@ class StresstestShared {
     console.log(`Send BCH to ${node0CashAddress} to start`)
     console.log("Write down the following message, address and signature to prove you sent these transactions")
     console.log(`Message: ${msg}, signed from address: ${node0CashAddress}, signature: ${signature}`)
+
+    console.log(qrcodeCashAddress)
 
     // Wait for utxo to arrive to build starting wallet
     let utxo = await this.pollForUtxo(node0LegacyAddress)
