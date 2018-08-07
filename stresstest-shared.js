@@ -181,7 +181,7 @@ class StresstestShared {
 
     let dustLimitSats = 546
     let maxTxChain = 24
-    let feePerTx = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 3 })
+    let feePerTx = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 1 }) + 33
     let satsPerAddress = feePerTx * maxTxChain + dustLimitSats
     let splitFeePerAddress = BITBOX.BitcoinCash.getByteCount({ P2PKH: 0 }, { P2PKH: 1 })
     let numAddresses = Math.floor((wallet.satoshis) / (satsPerAddress + splitFeePerAddress))
@@ -196,7 +196,7 @@ class StresstestShared {
     let satsChange = 0
     while (satsChange < dustLimitSats) {
       // Calculate splitTx fee and change to return to refundAddress
-      byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: numAddresses + 3 })
+      byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: numAddresses + 1 }) + 33
       satsChange = wallet.satoshis - byteCount - (numAddresses * satsPerAddress)
 
       if (satsChange < dustLimitSats) {
@@ -375,7 +375,7 @@ class StresstestShared {
     transactionBuilder.addInput(wallet.txid, wallet.vout)
 
     // Calculate fee @ 1 sat/byte
-    let byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 3 })
+    let byteCount = BITBOX.BitcoinCash.getByteCount({ P2PKH: 1 }, { P2PKH: 1 }) + 33
     let satoshisAfterFee = wallet.satoshis - byteCount
 
     transactionBuilder.addOutput(targetAddress, satoshisAfterFee)
