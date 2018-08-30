@@ -1,3 +1,6 @@
+## Deprecation warning
+This repo has been deprecated in favor of the web version available at https://github.com/SpendBCH/bch-stresstest-web and https://www.scale.cash
+
 # bch-stresstest
 node.js app for stress testing the BCH network
 
